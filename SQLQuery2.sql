@@ -1,0 +1,233 @@
+-- To avoid any errors, check missing value / null value 
+-- Q1. Write a code to check NULL values
+
+SELECT
+    SUM(CASE WHEN Province IS NULL THEN 1 ELSE 0 END) AS c_Province,
+    SUM(CASE WHEN [Country Region] IS NULL THEN 1 ELSE 0 END) AS c_Country_Region,
+    SUM(CASE WHEN Latitude IS NULL THEN 1 ELSE 0 END) AS c_Latitude,
+    SUM(CASE WHEN Longitude IS NULL THEN 1 ELSE 0 END) AS c_Longitude,
+    SUM(CASE WHEN Date IS NULL THEN 1 ELSE 0 END) AS c_Date,
+	SUM(CASE WHEN Confirmed IS NULL THEN 1 ELSE 0 END) AS c_Confirmed,
+	SUM(CASE WHEN Deaths IS NULL THEN 1 ELSE 0 END) AS c_Deaths,
+	SUM(CASE WHEN Recovered IS NULL THEN 1 ELSE 0 END) AS c_Recovered 
+FROM [Corona Virus Dataset]
+---------------------------------------------------------------------------
+
+-- Q2. check total number of rows
+SELECT count(*) as total_number_of_rows 
+FROM [Corona Virus Dataset] 
+---------------------------------------------------------------------------
+-- Q3 Check what is start_date and end_date
+
+Select max(Date) as start_date,min(Date) as end_date
+from [Corona Virus Dataset]
+
+---------------------------------------------------------------------------
+-- Q4. Number of month present in dataset
+---- Explanation
+--DATEPART(YEAR, date): Extracts the year part of the date.
+--DATEPART(MONTH, date): Extracts the month part of the date.
+--DATEPART(YEAR, date) * 100 + DATEPART(MONTH, date):
+--Combines year and month into a unique number (e.g., 202304 for April 2023).
+
+SELECT COUNT(DISTINCT DATEPART(YEAR, TRY_CONVERT(DATE, Date))
+* 100 +DATEPART(MONTH, TRY_CONVERT(DATE, Date))) AS distinct_months
+FROM [Corona Virus Dataset]
+
+---------------------------------------------------------------------------
+-- Q5. Find monthly average for confirmed, deaths, recover 
+ -- Calculate the average for each column 
+
+SELECT
+    AVG(TRY_CAST(Confirmed AS int)) AS avg_confirmed,
+    AVG(TRY_CAST(Deaths AS int)) AS avg_deaths,
+    AVG(TRY_CAST(Recovered AS int)) AS avg_recovered
+FROM [Corona Virus Dataset]
+
+---------------------------------------------------------------------------
+
+-- Q6. Find most frequent value for confirmed, deaths, recovered each month
+
+ALTER DATABASE corona_virus
+SET COMPATIBILITY_LEVEL = 150;
+
+WITH MonthlyFrequency AS (
+    SELECT
+        DATEPART(YEAR, TRY_CONVERT(DATE, Date)) AS Year,
+        DATEPART(MONTH, TRY_CONVERT(DATE, Date)) AS Month,
+        Confirmed,
+        Deaths,
+        Recovered,
+        COUNT(*) AS Frequency,
+        ROW_NUMBER() OVER (PARTITION BY DATEPART(YEAR, TRY_CONVERT(DATE, Date)),  DATEPART(MONTH, TRY_CONVERT(DATE, Date)), Confirmed ORDER BY COUNT(*) DESC) AS ConfirmedRank,
+        ROW_NUMBER() OVER (PARTITION BY DATEPART(YEAR, TRY_CONVERT(DATE, Date)),  DATEPART(MONTH, TRY_CONVERT(DATE, Date)), Deaths ORDER BY COUNT(*) DESC) AS DeathsRank,
+        ROW_NUMBER() OVER (PARTITION BY DATEPART(YEAR, TRY_CONVERT(DATE, Date)),  DATEPART(MONTH, TRY_CONVERT(DATE, Date)), Recovered ORDER BY COUNT(*) DESC) AS RecoveredRank
+    FROM [Corona Virus Dataset]
+	where  DATEPART(MONTH, TRY_CONVERT(DATE, Date)) is not null
+    GROUP BY DATEPART(YEAR, TRY_CONVERT(DATE, Date)),  DATEPART(MONTH, TRY_CONVERT(DATE, Date)), Confirmed, Deaths, Recovered
+)
+SELECT
+    Year,
+    Month,
+    Confirmed AS MostFrequentConfirmed,
+    Deaths AS MostFrequentDeaths,
+    Recovered AS MostFrequentRecovered
+FROM MonthlyFrequency
+WHERE ConfirmedRank = 1
+   OR DeathsRank = 1
+   OR RecoveredRank = 1
+ORDER BY Year, Month;
+
+
+---------------------------------------------------------------------------
+
+
+
+-- Q7. Find minimum values for confirmed, deaths, recovered per year
+
+SELECT
+    DatePart(YEAR, TRY_CONVERT(DATE, Date)) AS Year,
+    MIN(Confirmed) AS MinConfirmed,
+    MIN(Deaths) AS MinDeaths,
+    MIN(Recovered) AS MinRecovered
+FROM
+    [Corona Virus Dataset]
+where DatePart(YEAR, TRY_CONVERT(DATE, Date)) is not null
+GROUP BY DatePart(YEAR, TRY_CONVERT(DATE, Date))
+
+
+--------------------------------------------------------------------------
+-- Q8. Find maximum values of confirmed, deaths, recovered per year
+
+SELECT
+    DatePart(YEAR, TRY_CONVERT(DATE, Date)) AS Year,
+    max(Confirmed) AS MinConfirmed,
+    max(Deaths) AS MinDeaths,
+    max(Recovered) AS MinRecovered
+FROM
+    [Corona Virus Dataset]
+where DatePart(YEAR, TRY_CONVERT(DATE, Date)) is not null
+GROUP BY DatePart(YEAR, TRY_CONVERT(DATE, Date))
+
+--------------------------------------------------------------------------
+
+-- Q9. The total number of case of confirmed, deaths, recovered each month
+SELECT
+    DATEPART(YEAR, TRY_CONVERT(DATE, Date)) AS Year,
+    DATEPART(MONTH, TRY_CONVERT(DATE, Date)) AS Month,
+    SUM(TRY_CONVERT(int, Confirmed)) AS TotalConfirmed,
+    SUM(TRY_CONVERT(int, Deaths)) AS TotalDeaths,
+    SUM(TRY_CONVERT(int, Recovered)) AS TotalRecovered
+FROM
+    [Corona Virus Dataset]
+where  DATEPART(YEAR, TRY_CONVERT(DATE, Date)) is not null
+GROUP BY
+    DATEPART(YEAR, TRY_CONVERT(DATE, Date)),
+    DATEPART(MONTH, TRY_CONVERT(DATE, Date))
+ORDER BY
+    Year, Month;
+
+--------------------------------------------------------------------------
+
+-- Q10. Check how corona virus spread out with respect to confirmed case
+--      (Eg.: total confirmed cases, their average, variance & STDEV )
+
+SELECT
+    DATEPART(YEAR, TRY_CONVERT(DATE, Date)) AS Year,
+    DATEPART(MONTH, TRY_CONVERT(DATE, Date)) AS Month,
+    SUM(TRY_CONVERT(int, Confirmed)) AS TotalConfirmed,
+    AVG(TRY_CONVERT(int, Confirmed)) AS AverageConfirmed,
+    VAR(TRY_CONVERT(int, Confirmed)) AS VarianceConfirmed,
+    STDEV(TRY_CONVERT(int, Confirmed)) AS StdevConfirmed
+FROM
+    [Corona Virus Dataset]
+where  DATEPART(YEAR, TRY_CONVERT(DATE, Date)) is not null
+GROUP BY
+    DATEPART(YEAR, TRY_CONVERT(DATE, Date)),
+    DATEPART(MONTH, TRY_CONVERT(DATE, Date))
+ORDER BY
+    Year, Month
+
+--------------------------------------------------------------------------
+
+-- Q11. Check how corona virus spread out with respect to death case per month
+--      (Eg.: total confirmed cases, their average, variance & STDEV )
+
+SELECT
+    DATEPART(YEAR, TRY_CONVERT(DATE, Date)) AS Year,
+    DATEPART(MONTH, TRY_CONVERT(DATE, Date)) AS Month,
+    SUM(TRY_CONVERT(int, Deaths)) AS TotalConfirmed,
+    AVG(TRY_CONVERT(int, Deaths)) AS AverageConfirmed,
+    VAR(TRY_CONVERT(int, Deaths)) AS VarianceConfirmed,
+    STDEV(TRY_CONVERT(int, Deaths)) AS StdevConfirmed
+FROM
+    [Corona Virus Dataset]
+where  DATEPART(YEAR, TRY_CONVERT(DATE, Date)) is not null
+GROUP BY
+    DATEPART(YEAR, TRY_CONVERT(DATE, Date)),
+    DATEPART(MONTH, TRY_CONVERT(DATE, Date))
+ORDER BY
+    Year, Month
+
+--------------------------------------------------------------------------
+-- Q12. Check how corona virus spread out with respect to recovered case
+--      (Eg.: total confirmed cases, their average, variance & STDEV )
+
+SELECT
+    DATEPART(YEAR, TRY_CONVERT(DATE, Date)) AS Year,
+    DATEPART(MONTH, TRY_CONVERT(DATE, Date)) AS Month,
+    SUM(TRY_CONVERT(int, Recovered)) AS TotalConfirmed,
+    AVG(TRY_CONVERT(int, Recovered)) AS AverageConfirmed,
+    VAR(TRY_CONVERT(int, Recovered)) AS VarianceConfirmed,
+    STDEV(TRY_CONVERT(int, Recovered)) AS StdevConfirmed
+FROM
+    [Corona Virus Dataset]
+where  DATEPART(YEAR, TRY_CONVERT(DATE, Date)) is not null
+GROUP BY
+    DATEPART(YEAR, TRY_CONVERT(DATE, Date)),
+    DATEPART(MONTH, TRY_CONVERT(DATE, Date))
+ORDER BY
+    Year, Month
+--------------------------------------------------------------------------
+-- Q13. Find Country having highest number of the Confirmed case
+select top (1)[Country Region], sum(try_cast (Confirmed as int)) as count_Confirmed 
+from [Corona Virus Dataset]
+group by [Country Region]
+order by count_Confirmed desc 
+
+--------------------------------------------------------------------------
+-- Q14. Find Country having lowest number of the death case
+
+select top (1)[Country Region], sum(try_cast (Deaths as int)) as lowest_death
+from [Corona Virus Dataset]
+group by [Country Region]
+Having sum(try_cast (Deaths as int)) is not null
+order by lowest_death asc 
+
+--------------------------------------------------------------------------
+-- Q15. Find top 5 countries having highest recovered case
+
+select top (5)[Country Region], sum(try_cast (Recovered as int)) as count_recovered 
+from [Corona Virus Dataset]
+group by [Country Region]
+Having sum(try_cast (Recovered as int)) is not null
+order by count_recovered  desc 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
